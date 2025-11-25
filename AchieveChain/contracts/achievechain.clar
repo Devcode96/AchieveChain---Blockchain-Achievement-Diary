@@ -80,3 +80,63 @@
 
 ;; Initialize contract owner as verifier
 (map-set verifiers contract-owner true)
+
+;; #[allow(unchecked_data)]
+;; Record a new achievement
+(define-public (record-achievement (title (string-ascii 100)) (description (string-ascii 256)) (category (string-ascii 50)))
+    (let
+        (
+            (achievement-id (var-get achievement-nonce))
+            (current-achievements (default-to (list) (map-get? student-achievements tx-sender)))
+            (category-count (default-to u0 (map-get? categories category)))
+        )
+        ;; #[allow(unchecked_data)]
+        (map-set achievements achievement-id {
+            student: tx-sender,
+            title: title,
+            description: description,
+            category: category,
+            timestamp: stacks-block-height,
+            verified: false,
+            verifier: none,
+            rating: u0
+        })
+        ;; #[allow(unchecked_data)]
+        (map-set student-achievements tx-sender (unwrap-panic (as-max-len? (append current-achievements achievement-id) u100)))
+        ;; #[allow(unchecked_data)]
+        (map-set categories category (+ category-count u1))
+        (var-set achievement-nonce (+ achievement-id u1))
+        (update-student-stats tx-sender)
+        (ok achievement-id)
+    )
+)
+
+;; #[allow(unchecked_data)]
+;; Update achievement description
+(define-public (update-achievement (achievement-id uint) (new-description (string-ascii 256)))
+    (let
+        (
+            (achievement (unwrap! (map-get? achievements achievement-id) err-not-found))
+        )
+        (asserts! (is-eq tx-sender (get student achievement)) err-unauthorized)
+        (asserts! (not (get verified achievement)) err-already-verified)
+        ;; #[allow(unchecked_data)]
+        (ok (map-set achievements achievement-id
+            (merge achievement { description: new-description })
+        ))
+    )
+)
+
+;; #[allow(unchecked_data)]
+;; Delete unverified achievement
+(define-public (delete-achievement (achievement-id uint))
+    (let
+        (
+            (achievement (unwrap! (map-get? achievements achievement-id) err-not-found))
+        )
+        (asserts! (is-eq tx-sender (get student achievement)) err-unauthorized)
+        (asserts! (not (get verified achievement)) err-already-verified)
+        ;; #[allow(unchecked_data)]
+        (ok (map-delete achievements achievement-id))
+    )
+)
