@@ -140,3 +140,65 @@
         (ok (map-delete achievements achievement-id))
     )
 )
+
+;; #[allow(unchecked_data)]
+;; Verify an achievement
+(define-public (verify-achievement (achievement-id uint))
+    (let
+        (
+            (achievement (unwrap! (map-get? achievements achievement-id) err-not-found))
+            (is-verifier (default-to false (map-get? verifiers tx-sender)))
+        )
+        (asserts! is-verifier err-unauthorized)
+        (asserts! (not (get verified achievement)) err-already-verified)
+        ;; #[allow(unchecked_data)]
+        (ok (map-set achievements achievement-id
+            (merge achievement { verified: true, verifier: (some tx-sender) })
+        ))
+    )
+)
+
+;; #[allow(unchecked_data)]
+;; Add a verifier
+(define-public (add-verifier (verifier principal))
+    (begin
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        ;; #[allow(unchecked_data)]
+        (ok (map-set verifiers verifier true))
+    )
+)
+
+;; #[allow(unchecked_data)]
+;; Remove a verifier
+(define-public (remove-verifier (verifier principal))
+    (begin
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        (asserts! (not (is-eq verifier contract-owner)) err-unauthorized)
+        ;; #[allow(unchecked_data)]
+        (ok (map-delete verifiers verifier))
+    )
+)
+
+;; #[allow(unchecked_data)]
+;; Batch verify achievements
+(define-public (batch-verify (achievement-ids (list 10 uint)))
+    (begin
+        (asserts! (default-to false (map-get? verifiers tx-sender)) err-unauthorized)
+        ;; #[allow(unchecked_data)]
+        (ok (map verify-achievement-internal achievement-ids))
+    )
+)
+
+;; #[allow(unchecked_data)]
+;; Internal function for batch verification
+(define-private (verify-achievement-internal (achievement-id uint))
+    (let
+        (
+            (achievement (unwrap-panic (map-get? achievements achievement-id)))
+        )
+        ;; #[allow(unchecked_data)]
+        (map-set achievements achievement-id
+            (merge achievement { verified: true, verifier: (some tx-sender) })
+        )
+    )
+)
