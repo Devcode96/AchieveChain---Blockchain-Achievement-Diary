@@ -291,3 +291,76 @@
         )
     )
 )
+
+;; Get achievement details
+(define-read-only (get-achievement (achievement-id uint))
+    (map-get? achievements achievement-id)
+)
+
+;; Get student achievements
+(define-read-only (get-student-achievements (student principal))
+    (default-to (list) (map-get? student-achievements student))
+)
+
+;; Check if principal is verifier
+(define-read-only (is-verifier (address principal))
+    (default-to false (map-get? verifiers address))
+)
+
+;; Get total achievement count
+(define-read-only (get-achievement-count)
+    (ok (var-get achievement-nonce))
+)
+
+;; Get achievements by category
+(define-read-only (get-category-count (category (string-ascii 50)))
+    (default-to u0 (map-get? categories category))
+)
+
+;; Get milestone details
+(define-read-only (get-milestone (milestone-id uint))
+    (map-get? milestones milestone-id)
+)
+
+;; Get student milestones
+(define-read-only (get-student-milestones (student principal))
+    (default-to (list) (map-get? student-milestones student))
+)
+
+;; Get achievement rating by rater
+(define-read-only (get-achievement-rating (achievement-id uint) (rater principal))
+    (map-get? achievement-ratings { achievement-id: achievement-id, rater: rater })
+)
+
+;; Get student statistics
+(define-read-only (get-student-stats (student principal))
+    (map-get? student-stats student)
+)
+
+;; Get contract owner
+(define-read-only (get-contract-owner)
+    (ok contract-owner)
+)
+
+;; Check if achievement is verified
+(define-read-only (is-achievement-verified (achievement-id uint))
+    (match (map-get? achievements achievement-id)
+        achievement (ok (get verified achievement))
+        err-not-found
+    )
+)
+
+;; Get total milestone count
+(define-read-only (get-milestone-count)
+    (ok (var-get milestone-nonce))
+)
+
+;; Count verified achievements for a student
+(define-read-only (count-student-verified (student principal))
+    (let
+        (
+            (achievement-ids (default-to (list) (map-get? student-achievements student)))
+        )
+        (ok (fold count-verified achievement-ids u0))
+    )
+)
