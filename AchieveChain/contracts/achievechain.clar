@@ -202,3 +202,92 @@
         )
     )
 )
+
+;; #[allow(unchecked_data)]
+;; Create a milestone
+(define-public (create-milestone (title (string-ascii 100)) (target-count uint) (category (string-ascii 50)))
+    (let
+        (
+            (milestone-id (var-get milestone-nonce))
+            (current-milestones (default-to (list) (map-get? student-milestones tx-sender)))
+        )
+        ;; #[allow(unchecked_data)]
+        (map-set milestones milestone-id {
+            student: tx-sender,
+            title: title,
+            target-count: target-count,
+            current-count: u0,
+            completed: false,
+            category: category
+        })
+        ;; #[allow(unchecked_data)]
+        (map-set student-milestones tx-sender (unwrap-panic (as-max-len? (append current-milestones milestone-id) u50)))
+        (var-set milestone-nonce (+ milestone-id u1))
+        (ok milestone-id)
+    )
+)
+
+;; #[allow(unchecked_data)]
+;; Update milestone progress
+(define-public (update-milestone-progress (milestone-id uint) (increment uint))
+    (let
+        (
+            (milestone (unwrap! (map-get? milestones milestone-id) err-not-found))
+            (new-count (+ (get current-count milestone) increment))
+        )
+        (asserts! (is-eq tx-sender (get student milestone)) err-unauthorized)
+        ;; #[allow(unchecked_data)]
+        (ok (map-set milestones milestone-id
+            (merge milestone { 
+                current-count: new-count,
+                completed: (>= new-count (get target-count milestone))
+            })
+        ))
+    )
+)
+
+;; #[allow(unchecked_data)]
+;; Rate an achievement
+(define-public (rate-achievement (achievement-id uint) (rating uint))
+    (let
+        (
+            (achievement (unwrap! (map-get? achievements achievement-id) err-not-found))
+        )
+        (asserts! (not (is-eq tx-sender (get student achievement))) err-cannot-rate-own)
+        (asserts! (and (>= rating u1) (<= rating u5)) err-invalid-rating)
+        ;; #[allow(unchecked_data)]
+        (map-set achievement-ratings { achievement-id: achievement-id, rater: tx-sender } rating)
+        (ok true)
+    )
+)
+
+;; #[allow(unchecked_data)]
+;; Update student statistics
+(define-private (update-student-stats (student principal))
+    (let
+        (
+            (achievement-ids (default-to (list) (map-get? student-achievements student)))
+            (total-count (len achievement-ids))
+            (verified-count (fold count-verified achievement-ids u0))
+        )
+        ;; #[allow(unchecked_data)]
+        (map-set student-stats student {
+            total-achievements: total-count,
+            verified-achievements: verified-count,
+            average-rating: u0
+        })
+    )
+)
+
+;; Helper function to count verified achievements
+(define-private (count-verified (achievement-id uint) (acc uint))
+    (let
+        (
+            (achievement (map-get? achievements achievement-id))
+        )
+        (if (and (is-some achievement) (get verified (unwrap-panic achievement)))
+            (+ acc u1)
+            acc
+        )
+    )
+)
